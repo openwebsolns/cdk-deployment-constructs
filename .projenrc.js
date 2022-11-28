@@ -11,12 +11,16 @@ const project = new awscdk.AwsCdkConstructLibrary({
   keywords: ['awscdk'],
   deps: [
     'aws-cdk-lib',
+  ],
+  devDeps: [
+    'aws-cdk-lib',
+    'esbuild',
+    '@types/aws-lambda',
+  ],
+  bundledDeps: [
+    'aws-sdk',
     'aws-lambda',
   ],
-  publishToPypi: {
-    distName: 'cdk-deployment-constructs',
-    module: 'cdk_deployment_constructs',
-  },
   stability: 'experimental',
 
   // description: undefined,  /* The description is just a string that helps people understand the purpose of the package. */
