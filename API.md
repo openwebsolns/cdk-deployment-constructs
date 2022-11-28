@@ -4,6 +4,32 @@
 
 ### CodePipelineHelper <a name="CodePipelineHelper" id="cdk-deployment-constructs.CodePipelineHelper"></a>
 
+Companion construct for a (aws-codepipeline) `CodePipeline`.
+
+Facilitates creation of a `DeploymentSafetyEnforcer` with methods like `putCalendarBlockers`.
+The actual enforcer is constructed (by invoking the engine) when `buildEnforcer()` is called,
+or when `app.synth()` is called (whichever comes first).
+
+Example:
+
+```ts
+declare const pipeline: pipelines.CodePipeline;
+
+const pipelineHelper = new CodePipelineHelper(this, 'Helper', {
+   pipeline,
+   enforcementFrequency: Duration.minutes(5), // default: 10
+});
+
+const stage = pipeline.addStage(...);
+pipelineHelper.putCalendarBlockers({
+   stage,
+   changeCalendarNames: [
+     "CalendarName",
+     "arn:aws:ssm:$region:$account:document/CalendarArn", // for shared calendars
+   ],
+});
+```
+
 #### Initializers <a name="Initializers" id="cdk-deployment-constructs.CodePipelineHelper.Initializer"></a>
 
 ```typescript
@@ -140,6 +166,8 @@ The associated pipeline.
 
 ### DeploymentSafetyEnforcer <a name="DeploymentSafetyEnforcer" id="cdk-deployment-constructs.DeploymentSafetyEnforcer"></a>
 
+Creates a Lambda function to monitor a `CodePipeline`.
+
 #### Initializers <a name="Initializers" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.Initializer"></a>
 
 ```typescript
@@ -241,6 +269,8 @@ The tree node.
 
 ### AddCalendarBlockersProps <a name="AddCalendarBlockersProps" id="cdk-deployment-constructs.AddCalendarBlockersProps"></a>
 
+Properties for `CodePipelineHelper.putCalendarBlockers`.
+
 #### Initializer <a name="Initializer" id="cdk-deployment-constructs.AddCalendarBlockersProps.Initializer"></a>
 
 ```typescript
@@ -287,6 +317,8 @@ Stage to deploy.
 
 ### CodePipelineHelperProps <a name="CodePipelineHelperProps" id="cdk-deployment-constructs.CodePipelineHelperProps"></a>
 
+Properties for `CodePipelineHelper`.
+
 #### Initializer <a name="Initializer" id="cdk-deployment-constructs.CodePipelineHelperProps.Initializer"></a>
 
 ```typescript
@@ -331,6 +363,8 @@ Default: 10 minutes.
 ---
 
 ### DeploymentSafetyEnforcerProps <a name="DeploymentSafetyEnforcerProps" id="cdk-deployment-constructs.DeploymentSafetyEnforcerProps"></a>
+
+Properties for `DeploymentSafetyEnforcer`.
 
 #### Initializer <a name="Initializer" id="cdk-deployment-constructs.DeploymentSafetyEnforcerProps.Initializer"></a>
 
