@@ -8,6 +8,9 @@ import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as common from './common';
 
+/**
+ * Properties for `DeploymentSafetyEnforcer`.
+ */
 export interface DeploymentSafetyEnforcerProps {
   /**
    * The pipeline to enforce.
@@ -27,6 +30,9 @@ export interface DeploymentSafetyEnforcerProps {
   readonly enforcementFrequency?: cdk.Duration;
 }
 
+/**
+ * Creates a Lambda function to monitor a `CodePipeline`.
+ */
 export class DeploymentSafetyEnforcer extends Construct {
   constructor(
     scope: Construct,

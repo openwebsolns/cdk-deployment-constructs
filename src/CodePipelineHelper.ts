@@ -3,9 +3,12 @@ import * as pipelines from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { DeploymentSafetyEnforcer } from './DeploymentSafetyEnforcer';
 
+/**
+ * Properties for `CodePipelineHelper`.
+ */
 export interface CodePipelineHelperProps {
   /**
-   * The pipeline to monitor with this helper.
+   * The pipeline to monitor with this helper
    */
   readonly pipeline: pipelines.CodePipeline;
 
@@ -17,6 +20,9 @@ export interface CodePipelineHelperProps {
   readonly enforcementFrequency?: cdk.Duration;
 }
 
+/**
+ * Properties for `CodePipelineHelper.putCalendarBlockers`
+ */
 export interface AddCalendarBlockersProps {
   /**
    * Stage to deploy.
@@ -31,6 +37,33 @@ export interface AddCalendarBlockersProps {
   readonly changeCalendarNames: string[];
 }
 
+/**
+ * Companion construct for a (aws-codepipeline) `CodePipeline`.
+ *
+ * Facilitates creation of a `DeploymentSafetyEnforcer` with methods like `putCalendarBlockers`.
+ * The actual enforcer is constructed (by invoking the engine) when `buildEnforcer()` is called,
+ * or when `app.synth()` is called (whichever comes first).
+ *
+ * Example:
+ *
+ * ```ts
+ * declare const pipeline: pipelines.CodePipeline;
+ *
+ * const pipelineHelper = new CodePipelineHelper(this, 'Helper', {
+ *   pipeline,
+ *   enforcementFrequency: Duration.minutes(5), // default: 10
+ * });
+ *
+ * const stage = pipeline.addStage(...);
+ * pipelineHelper.putCalendarBlockers({
+ *   stage,
+ *   changeCalendarNames: [
+ *     "CalendarName",
+ *     "arn:aws:ssm:$region:$account:document/CalendarArn", // for shared calendars
+ *   ],
+ * });
+ * ```
+ */
 export class CodePipelineHelper extends Construct {
   /**
    * The associated pipeline.
