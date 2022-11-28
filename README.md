@@ -1,6 +1,6 @@
 # CDK Deployment Constructs
 
-[![NPM version](https://badge.fury.io/js/cdk-monitoring-constructs.svg)](https://badge.fury.io/js/cdk-monitoring-constructs)
+[![NPM version](https://badge.fury.io/js/cdk-deployment-constructs.svg)](https://badge.fury.io/js/cdk-deployment-constructs)
 
 CDK constructs for safe deployment of code via AWS CodeSuite.
 
