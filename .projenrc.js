@@ -13,7 +13,6 @@ const project = new awscdk.AwsCdkConstructLibrary({
     'aws-cdk-lib',
   ],
   devDeps: [
-    'aws-cdk-lib',
     'esbuild',
     '@types/aws-lambda',
   ],
@@ -23,8 +22,6 @@ const project = new awscdk.AwsCdkConstructLibrary({
   ],
   stability: 'experimental',
 
-  // description: undefined,  /* The description is just a string that helps people understand the purpose of the package. */
-  // devDeps: [],             /* Build dependencies for this module. */
-  // packageName: undefined,  /* The "name" in package.json. */
+  packageName: 'cdk-deployment-constructs',
 });
 project.synth();
