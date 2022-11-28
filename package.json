@@ -1,8 +1,9 @@
 {
   "name": "cdk-deployment-constructs",
+  "description": "CDK constructs for safe code deployment",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dayapaez/cdk-deployment-constructs.git"
+    "url": "https://github.com/openwebsolns/cdk-deployment-constructs.git"
   },
   "scripts": {
     "build": "npx projen build",
@@ -17,6 +18,7 @@
     "package": "npx projen package",
     "package-all": "npx projen package-all",
     "package:js": "npx projen package:js",
+    "package:python": "npx projen package:python",
     "post-compile": "npx projen post-compile",
     "post-upgrade": "npx projen post-upgrade",
     "pre-compile": "npx projen pre-compile",
@@ -30,7 +32,7 @@
   },
   "author": {
     "name": "Dayan Paez",
-    "email": "dayapaez@amazon.com",
+    "email": "dayan@openweb-solutions.net",
     "organization": false
   },
   "devDependencies": {
@@ -38,7 +40,6 @@
     "@types/node": "^14",
     "@typescript-eslint/eslint-plugin": "^5",
     "@typescript-eslint/parser": "^5",
-    "aws-cdk-lib": "2.1.0",
     "constructs": "10.0.5",
     "eslint": "^8",
     "eslint-import-resolver-node": "^0.3.6",
@@ -61,11 +62,16 @@
     "aws-cdk-lib": "^2.1.0",
     "constructs": "^10.0.5"
   },
+  "dependencies": {
+    "aws-cdk-lib": "^2.47.0",
+    "aws-lambda": "^1.0.7"
+  },
   "keywords": [
+    "awscdk",
     "cdk"
   ],
   "main": "lib/index.js",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "version": "0.0.0",
   "jest": {
     "testMatch": [
@@ -108,10 +114,15 @@
     }
   },
   "types": "lib/index.d.ts",
-  "stability": "stable",
+  "stability": "experimental",
   "jsii": {
     "outdir": "dist",
-    "targets": {},
+    "targets": {
+      "python": {
+        "distName": "cdk-deployment-constructs",
+        "module": "cdk_deployment_constructs"
+      }
+    },
     "tsc": {
       "outDir": "lib",
       "rootDir": "src"
