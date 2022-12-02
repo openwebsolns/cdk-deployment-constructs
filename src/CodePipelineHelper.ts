@@ -21,23 +21,6 @@ export interface CodePipelineHelperProps {
 }
 
 /**
- * Properties for `CodePipelineHelper.putCalendarBlockers`
- */
-export interface AddCalendarBlockersProps {
-  /**
-   * Stage to deploy.
-   */
-  readonly stage: pipelines.StageDeployment;
-  /**
-   * List of SSM Change Calendar names or ARNs (for shared calendars) to consult.
-   *
-   * Deployments into the associated stage will be blocked if _any_ of these calendars
-   * are `CLOSED`; and will be enabled iff _all_ are `OPEN`.
-   */
-  readonly changeCalendarNames: string[];
-}
-
-/**
  * Companion construct for a (aws-codepipeline) `CodePipeline`.
  *
  * Facilitates creation of a `DeploymentSafetyEnforcer` with methods like `putCalendarBlockers`.
@@ -93,14 +76,41 @@ export class CodePipelineHelper extends Construct {
   /**
    * Adds or updates Change Calendar blockers for a given stage.
    *
-   * Returns self for chaining.
+   * Deployments into the associated stage will be blocked if _any_ of these calendars
+   * are `CLOSED`; and will be enabled iff _all_ are `OPEN`.
+   *
+   * @param wave - the pipeline wave to block
+   * @param changeCalendarNames - set of SSM ChangeCalendar name or ARNs to block on
+   * @see blockStageOnChangeCalendars if using stages directly
    */
-  public putCalendarBlockers(props: AddCalendarBlockersProps) {
-    this.changeCalendarsByStageName[props.stage.stageName] =
-      props.changeCalendarNames;
-    return this;
+  public blockWaveOnChangeCalendars(wave: pipelines.Wave, changeCalendarNames: string[]) {
+    let stageName = wave.id;
+    if (wave.stages.length === 1) {
+      this.blockStageOnChangeCalendars(wave.stages[0], changeCalendarNames);
+    } else {
+      this.changeCalendarsByStageName[stageName] = changeCalendarNames;
+    }
   }
 
+  /**
+   * Adds or updates Change Calendar blockers for a given stage.
+   *
+   * Deployments into the associated stage will be blocked if _any_ of these calendars
+   * are `CLOSED`; and will be enabled iff _all_ are `OPEN`.
+   *
+   * @param stage - the single deployment stage to block
+   * @param changeCalendarNames - set of SSM ChangeCalendar name or ARNs to block on
+   * @see blockWaveOnChangeCalendars if using waves
+   */
+  public blockStageOnChangeCalendars(stage: pipelines.StageDeployment, changeCalendarNames: string[]) {
+    this.changeCalendarsByStageName[stage.stageName] = changeCalendarNames;
+  }
+
+  /**
+   * Performs one-time building of resources. May not be called multiple times.
+   *
+   * This method is automatically invoked on application synthesis.
+   */
   public buildEnforcer() {
     if (this.built) {
       throw new Error('build() has already been called: can only call it once');

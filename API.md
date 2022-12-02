@@ -69,8 +69,9 @@ new CodePipelineHelper(scope: Construct, id: string, props: CodePipelineHelperPr
 | **Name** | **Description** |
 | --- | --- |
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.toString">toString</a></code> | Returns a string representation of this construct. |
-| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.buildEnforcer">buildEnforcer</a></code> | *No description.* |
-| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.putCalendarBlockers">putCalendarBlockers</a></code> | Adds or updates Change Calendar blockers for a given stage. |
+| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.blockStageOnChangeCalendars">blockStageOnChangeCalendars</a></code> | Adds or updates Change Calendar blockers for a given stage. |
+| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.blockWaveOnChangeCalendars">blockWaveOnChangeCalendars</a></code> | Adds or updates Change Calendar blockers for a given stage. |
+| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.buildEnforcer">buildEnforcer</a></code> | Performs one-time building of resources. May not be called multiple times. |
 
 ---
 
@@ -82,27 +83,73 @@ public toString(): string
 
 Returns a string representation of this construct.
 
+##### `blockStageOnChangeCalendars` <a name="blockStageOnChangeCalendars" id="cdk-deployment-constructs.CodePipelineHelper.blockStageOnChangeCalendars"></a>
+
+```typescript
+public blockStageOnChangeCalendars(stage: StageDeployment, changeCalendarNames: string[]): void
+```
+
+Adds or updates Change Calendar blockers for a given stage.
+
+Deployments into the associated stage will be blocked if _any_ of these calendars
+are `CLOSED`; and will be enabled iff _all_ are `OPEN`.
+
+> [blockWaveOnChangeCalendars if using waves](blockWaveOnChangeCalendars if using waves)
+
+###### `stage`<sup>Required</sup> <a name="stage" id="cdk-deployment-constructs.CodePipelineHelper.blockStageOnChangeCalendars.parameter.stage"></a>
+
+- *Type:* aws-cdk-lib.pipelines.StageDeployment
+
+the single deployment stage to block.
+
+---
+
+###### `changeCalendarNames`<sup>Required</sup> <a name="changeCalendarNames" id="cdk-deployment-constructs.CodePipelineHelper.blockStageOnChangeCalendars.parameter.changeCalendarNames"></a>
+
+- *Type:* string[]
+
+set of SSM ChangeCalendar name or ARNs to block on.
+
+---
+
+##### `blockWaveOnChangeCalendars` <a name="blockWaveOnChangeCalendars" id="cdk-deployment-constructs.CodePipelineHelper.blockWaveOnChangeCalendars"></a>
+
+```typescript
+public blockWaveOnChangeCalendars(wave: Wave, changeCalendarNames: string[]): void
+```
+
+Adds or updates Change Calendar blockers for a given stage.
+
+Deployments into the associated stage will be blocked if _any_ of these calendars
+are `CLOSED`; and will be enabled iff _all_ are `OPEN`.
+
+> [blockStageOnChangeCalendars if using stages directly](blockStageOnChangeCalendars if using stages directly)
+
+###### `wave`<sup>Required</sup> <a name="wave" id="cdk-deployment-constructs.CodePipelineHelper.blockWaveOnChangeCalendars.parameter.wave"></a>
+
+- *Type:* aws-cdk-lib.pipelines.Wave
+
+the pipeline wave to block.
+
+---
+
+###### `changeCalendarNames`<sup>Required</sup> <a name="changeCalendarNames" id="cdk-deployment-constructs.CodePipelineHelper.blockWaveOnChangeCalendars.parameter.changeCalendarNames"></a>
+
+- *Type:* string[]
+
+set of SSM ChangeCalendar name or ARNs to block on.
+
+---
+
 ##### `buildEnforcer` <a name="buildEnforcer" id="cdk-deployment-constructs.CodePipelineHelper.buildEnforcer"></a>
 
 ```typescript
 public buildEnforcer(): void
 ```
 
-##### `putCalendarBlockers` <a name="putCalendarBlockers" id="cdk-deployment-constructs.CodePipelineHelper.putCalendarBlockers"></a>
+Performs one-time building of resources. May not be called multiple times.
 
-```typescript
-public putCalendarBlockers(props: AddCalendarBlockersProps): CodePipelineHelper
-```
-
-Adds or updates Change Calendar blockers for a given stage.
-
-Returns self for chaining.
-
-###### `props`<sup>Required</sup> <a name="props" id="cdk-deployment-constructs.CodePipelineHelper.putCalendarBlockers.parameter.props"></a>
-
-- *Type:* <a href="#cdk-deployment-constructs.AddCalendarBlockersProps">AddCalendarBlockersProps</a>
-
----
+This method is automatically invoked on application synthesis.
 
 #### Static Functions <a name="Static Functions" id="Static Functions"></a>
 
@@ -266,54 +313,6 @@ The tree node.
 
 
 ## Structs <a name="Structs" id="Structs"></a>
-
-### AddCalendarBlockersProps <a name="AddCalendarBlockersProps" id="cdk-deployment-constructs.AddCalendarBlockersProps"></a>
-
-Properties for `CodePipelineHelper.putCalendarBlockers`.
-
-#### Initializer <a name="Initializer" id="cdk-deployment-constructs.AddCalendarBlockersProps.Initializer"></a>
-
-```typescript
-import { AddCalendarBlockersProps } from 'cdk-deployment-constructs'
-
-const addCalendarBlockersProps: AddCalendarBlockersProps = { ... }
-```
-
-#### Properties <a name="Properties" id="Properties"></a>
-
-| **Name** | **Type** | **Description** |
-| --- | --- | --- |
-| <code><a href="#cdk-deployment-constructs.AddCalendarBlockersProps.property.changeCalendarNames">changeCalendarNames</a></code> | <code>string[]</code> | List of SSM Change Calendar names or ARNs (for shared calendars) to consult. |
-| <code><a href="#cdk-deployment-constructs.AddCalendarBlockersProps.property.stage">stage</a></code> | <code>aws-cdk-lib.pipelines.StageDeployment</code> | Stage to deploy. |
-
----
-
-##### `changeCalendarNames`<sup>Required</sup> <a name="changeCalendarNames" id="cdk-deployment-constructs.AddCalendarBlockersProps.property.changeCalendarNames"></a>
-
-```typescript
-public readonly changeCalendarNames: string[];
-```
-
-- *Type:* string[]
-
-List of SSM Change Calendar names or ARNs (for shared calendars) to consult.
-
-Deployments into the associated stage will be blocked if _any_ of these calendars
-are `CLOSED`; and will be enabled iff _all_ are `OPEN`.
-
----
-
-##### `stage`<sup>Required</sup> <a name="stage" id="cdk-deployment-constructs.AddCalendarBlockersProps.property.stage"></a>
-
-```typescript
-public readonly stage: StageDeployment;
-```
-
-- *Type:* aws-cdk-lib.pipelines.StageDeployment
-
-Stage to deploy.
-
----
 
 ### CodePipelineHelperProps <a name="CodePipelineHelperProps" id="cdk-deployment-constructs.CodePipelineHelperProps"></a>
 
