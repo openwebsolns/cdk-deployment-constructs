@@ -41,15 +41,16 @@ const disablePipelineTransitions = async (
   context: Context,
 ) => {
   const pipelineName = pipelineState.pipelineName!;
-  const stageStates = pipelineState.stageStates!;
 
   console.log('Start step: disable transitions for', pipelineName);
   await Promise.all(
-    (stageStates ?? []).map(async (stage) => {
-      const stageName = stage.stageName!;
-      const closedCalendars = (
-        calendarsByPipelineStage[stageName!] ?? []
-      ).filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
+    Object.entries(calendarsByPipelineStage).map(async ([stageName, calendars]) => {
+      if (!pipelineState.stageStates?.find((s) => s.stageName === stageName)) {
+        console.warn(`Configured stage ${stageName} not found in pipeline; skipping`);
+        return;
+      }
+
+      const closedCalendars = calendars.filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
 
       if (closedCalendars.length > 0) {
         console.log(
@@ -111,12 +112,16 @@ const enablePipelineTransitions = async (
   calendarStates: Record<string, string>,
 ) => {
   const pipelineName = pipelineState.pipelineName!;
-  const stageStates = pipelineState.stageStates!;
 
   console.log('Start step: enabling transitions for', pipelineName);
   await Promise.all(
-    (stageStates ?? []).map(async (stage) => {
-      const stageName = stage.stageName!;
+    Object.entries(calendarsByPipelineStage).map(async ([stageName, calendars]) => {
+      const stage = pipelineState.stageStates?.find((s) => s.stageName === stageName);
+      if (!stage) {
+        console.warn(`Configured stage ${stageName} not found in pipeline; skipping`);
+        return;
+      }
+
       const inboundTransitionState = stage.inboundTransitionState!;
 
       if (inboundTransitionState.enabled) {
@@ -124,9 +129,7 @@ const enablePipelineTransitions = async (
         return;
       }
 
-      const closedCalendars = (
-        calendarsByPipelineStage[stageName] ?? []
-      ).filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
+      const closedCalendars = calendars.filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
       if (closedCalendars.length > 0) {
         // should not be enabled
         return;
@@ -142,7 +145,7 @@ const enablePipelineTransitions = async (
           pipelineName,
           'stage',
           stageName,
-          'due to non-enfrocer reason',
+          'due to non-enforcer reason',
           inboundTransitionState,
         );
         return;
