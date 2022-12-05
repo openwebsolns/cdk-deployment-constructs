@@ -13,6 +13,7 @@ const project = new awscdk.AwsCdkConstructLibrary({
     'aws-cdk-lib',
   ],
   devDeps: [
+    'aws-cdk-lib',
     'esbuild',
     '@types/aws-lambda',
   ],

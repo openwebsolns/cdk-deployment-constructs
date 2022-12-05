@@ -7,6 +7,14 @@ interface DisableReason {
   readonly calendars?: string[];
 }
 
+interface PipelineTransitionAction {
+  readonly pipelineName: string;
+  readonly stageName: string;
+  readonly decision: 'ENABLE' | 'DISABLE' | 'SKIP:NOT_FOUND' | 'SKIP:NO_OP' | 'SKIP:EXTERNAL_ACTOR';
+  readonly disableReason?: DisableReason;
+  readonly error?: string;
+}
+
 const codepipeline = new aws.CodePipeline();
 const ssm = new aws.SSM();
 
@@ -32,52 +40,6 @@ const getCalendarStates = async (calendarNames: string[]) => {
 
   console.log('Calendar states', states);
   return states;
-};
-
-const disablePipelineTransitions = async (
-  pipelineState: aws.CodePipeline.GetPipelineStateOutput,
-  calendarsByPipelineStage: Record<string, string[]>,
-  calendarStates: Record<string, string>,
-  context: Context,
-) => {
-  const pipelineName = pipelineState.pipelineName!;
-
-  console.log('Start step: disable transitions for', pipelineName);
-  await Promise.all(
-    Object.entries(calendarsByPipelineStage).map(async ([stageName, calendars]) => {
-      if (!pipelineState.stageStates?.find((s) => s.stageName === stageName)) {
-        console.warn(`Configured stage ${stageName} not found in pipeline; skipping`);
-        return;
-      }
-
-      const closedCalendars = calendars.filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
-
-      if (closedCalendars.length > 0) {
-        console.log(
-          'Disabling inbound transition for pipeline',
-          pipelineName,
-          'stage',
-          stageName,
-          'due to closed calendars',
-          closedCalendars,
-        );
-
-        const reason: DisableReason = {
-          actor: `DeploymentSafetyEnforcer@${context.awsRequestId}`,
-          calendars: closedCalendars,
-        };
-
-        await codepipeline
-          .disableStageTransition({
-            pipelineName,
-            stageName,
-            transitionType: 'Inbound',
-            reason: toMarkdown(reason),
-          })
-          .promise();
-      }
-    }),
-  );
 };
 
 const transitionDisabledByEnforcer = (reason?: string) => {
@@ -106,98 +68,115 @@ const transitionDisabledByEnforcer = (reason?: string) => {
   return true;
 };
 
-const enablePipelineTransitions = async (
+export const calculatePipelineTransitionActions = (
   pipelineState: aws.CodePipeline.GetPipelineStateOutput,
   calendarsByPipelineStage: Record<string, string[]>,
   calendarStates: Record<string, string>,
-) => {
+  requestId: string,
+): PipelineTransitionAction[] => {
   const pipelineName = pipelineState.pipelineName!;
 
-  console.log('Start step: enabling transitions for', pipelineName);
-  await Promise.all(
-    Object.entries(calendarsByPipelineStage).map(async ([stageName, calendars]) => {
-      const stage = pipelineState.stageStates?.find((s) => s.stageName === stageName);
-      if (!stage) {
-        console.warn(`Configured stage ${stageName} not found in pipeline; skipping`);
-        return;
-      }
-
-      const inboundTransitionState = stage.inboundTransitionState!;
-
-      if (inboundTransitionState.enabled) {
-        // nothing to do; already enabled
-        return;
-      }
-
-      const closedCalendars = calendars.filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
-      if (closedCalendars.length > 0) {
-        // should not be enabled
-        return;
-      }
-
-      // Validate the disabled reason to ensure it was last performed
-      // by this function. Otherwise, skip enabling.
-      if (
-        !transitionDisabledByEnforcer(inboundTransitionState.disabledReason)
-      ) {
-        console.log(
-          'Not enabling transition for pipeline',
-          pipelineName,
-          'stage',
-          stageName,
-          'due to non-enforcer reason',
-          inboundTransitionState,
-        );
-        return;
-      }
-
-      console.log(
-        'Enabling inbound transition for pipeline',
+  return Object.entries(calendarsByPipelineStage).map(([stageName, calendars]) => {
+    const stage = pipelineState.stageStates?.find((s) => s.stageName === stageName);
+    if (!stage) {
+      return {
         pipelineName,
-        'stage',
         stageName,
-      );
-      await codepipeline
-        .enableStageTransition({
-          pipelineName,
-          stageName,
-          transitionType: 'Inbound',
-        })
-        .promise();
-    }),
-  );
+        decision: 'SKIP:NOT_FOUND',
+      };
+    }
+
+    const inboundTransitionState = stage.inboundTransitionState!;
+    // Validate the disabled reason to ensure it was last performed
+    // by this function. Otherwise, skip enabling.
+    if (
+      !inboundTransitionState.enabled
+      && !transitionDisabledByEnforcer(inboundTransitionState.disabledReason)
+    ) {
+      return {
+        pipelineName,
+        stageName,
+        decision: 'SKIP:EXTERNAL_ACTOR',
+        error: inboundTransitionState.disabledReason,
+      };
+    }
+
+    const closedCalendars = calendars.filter((calendarName) => calendarStates[calendarName] === 'CLOSED');
+    if (closedCalendars.length > 0) {
+      return {
+        pipelineName,
+        stageName,
+        decision: 'DISABLE',
+        disableReason: {
+          actor: `DeploymentSafetyEnforcer@${requestId}`,
+          calendars: closedCalendars,
+        },
+      };
+    }
+
+    if (inboundTransitionState.enabled) {
+      return {
+        pipelineName,
+        stageName,
+        decision: 'SKIP:NO_OP',
+      };
+    }
+
+    return {
+      pipelineName,
+      stageName,
+      decision: 'ENABLE',
+    };
+  });
 };
 
+/**
+ * Main logic for enforcer.
+ */
 const execute = async (
   settings: DeploymentSafetySettings,
-  context: Context,
+  pipelineState: aws.CodePipeline.GetPipelineStateOutput,
+  requestId: string,
 ) => {
-  const { pipelineName, changeCalendars } = settings;
-  const pipelineState = await codepipeline
-    .getPipelineState({
-      name: pipelineName,
-    })
-    .promise();
+  // 1. evaluate actions
+  const { changeCalendars } = settings;
+  const transitionActions = calculatePipelineTransitionActions(
+    pipelineState,
+    changeCalendars,
+    await getCalendarStates(Object.values(changeCalendars).flatMap((s) => s)),
+    requestId,
+  );
 
-  const changeCalendarNames = Object.values(changeCalendars).flatMap((s) => s);
-  if (changeCalendarNames.length > 0) {
-    const calendarStates = await getCalendarStates(changeCalendarNames);
-    // first: disable any transitions that should be closed to avoid pipeline
-    // executions being promoted to them when other actions are approved
-    await disablePipelineTransitions(
-      pipelineState,
-      changeCalendars,
-      calendarStates,
-      context,
-    );
+  // 2. perform actions in proper sequence
+  console.log('Transition action summary', transitionActions);
 
-    // last: enable any transitions that should be enabled
-    await enablePipelineTransitions(
-      pipelineState,
-      changeCalendars,
-      calendarStates,
-    );
-  }
+  // first: disable any transitions that should be closed to avoid pipeline
+  // executions being promoted to them when other actions are approved
+  await Promise.all(
+    transitionActions.filter(a => a.decision === 'DISABLE').map((action) =>
+      codepipeline
+        .disableStageTransition({
+          pipelineName: action.pipelineName,
+          stageName: action.stageName,
+          transitionType: 'Inbound',
+          reason: toMarkdown(action.disableReason!),
+        })
+        .promise(),
+    ),
+  );
+
+  // last: enable any transitions that should be enabled
+  await Promise.all(
+    transitionActions.filter(a => a.decision === 'ENABLE').map((action) =>
+      codepipeline
+        .enableStageTransition({
+          pipelineName: action.pipelineName,
+          stageName: action.stageName,
+          transitionType: 'Inbound',
+        })
+        .promise(),
+    ),
+  );
 };
 
 export const handler = async (
@@ -206,7 +185,12 @@ export const handler = async (
 ) => {
   try {
     console.log('Start event', event, 'context', context);
-    await execute(event, context);
+    const pipelineState = await codepipeline
+      .getPipelineState({
+        name: event.pipelineName,
+      })
+      .promise();
+    await execute(event, pipelineState, context.awsRequestId);
   } catch (error) {
     console.error(error, 'Unexpected error');
     throw error;
