@@ -1279,7 +1279,7 @@ available-typed-arrays@^1.0.5:
 
 aws-cdk-lib@^2.51.1:
   version "2.53.0"
-  resolved "https://amazon-149122183214.d.codeartifact.us-west-2.amazonaws.com:443/npm/CodeAwsRococo/aws-cdk-lib/-/aws-cdk-lib-2.53.0.tgz#c36ecfb87ba4e7d1cdfe0c620161beda0ce4aa67"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.53.0.tgz#c36ecfb87ba4e7d1cdfe0c620161beda0ce4aa67"
   integrity sha512-ADpJ9luJxzmOrP/GJ37nA1YtdNmsOsjE+NZnQOpB7YL0spUxZJGNVAselaFLSDZmIsC6d9mSnW81fj4SDP1gAw==
   dependencies:
     "@aws-cdk/asset-awscli-v1" "^2.2.9"
