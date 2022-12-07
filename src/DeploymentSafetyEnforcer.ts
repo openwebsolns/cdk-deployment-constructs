@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib';
-import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
@@ -9,41 +8,14 @@ import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as common from './common';
 
-export interface BakeStepAlarmProps {
-  /**
-   * The name of the alarm to monitor.
-   */
-  readonly alarm: cloudwatch.IAlarm;
-
-  /**
-   * Role to assume in order to describe the alarm history.
-   *
-   * For cross-account support, first create this role in the target account
-   * and add trust policy that trusts the pipeline account to assume it.
-   */
-  readonly assumeRole?: iam.IRole;
-
-  /**
-   * Specify approval behavior if the alarm cannot be described.
-   *
-   * Default: `REJECT`. Set to `IGNORE` if the alarm may not yet be created.
-   * Note that failure to assume the role (if applicable) may also result in a
-   * rejected approval.
-   */
-  readonly treatMissingAlarm?: 'IGNORE' | 'REJECT';
-
-}
-
+/**
+ * Props for creating a stage/wave bake approval step.
+ */
 export interface BakeStepProps {
   /**
    * How long to wait before approving the step.
    */
   readonly bakeTime: cdk.Duration;
-
-  /**
-   * Optionally watch the given alarm and reject if it fires.
-   */
-  readonly rejectOnAlarm?: BakeStepAlarmProps;
 }
 
 /**
@@ -146,38 +118,11 @@ export class DeploymentSafetyEnforcer extends Construct {
           ],
         }),
       );
-
-      const alarmHistoryRoles = new Set(
-        ...Object.values(props.bakeSteps!)
-          .filter((s) => s.rejectOnAlarm?.assumeRole !== undefined)
-          .map(({ rejectOnAlarm }) => rejectOnAlarm!.assumeRole!.roleArn),
-      );
-      if (alarmHistoryRoles.size > 0) {
-        enforcerFunction.addToRolePolicy(
-          new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            actions: [
-              'sts:AssumeRole',
-            ],
-            resources: new Array(...alarmHistoryRoles),
-          }),
-        );
-      }
     }
 
     const bakeStepSettings: Record<string, common.BakeStepSettings> = {};
     Object.entries(bakeSteps).forEach(([actionName, settings]) => {
-      let alarmSettings: common.BakeStepAlarmSettings | undefined;
-      if (settings.rejectOnAlarm) {
-        alarmSettings = {
-          alarmName: settings.rejectOnAlarm.alarm.alarmName,
-          treatMissingAlarm: settings.rejectOnAlarm.treatMissingAlarm ?? 'REJECT',
-          assumeRoleArn: settings.rejectOnAlarm.assumeRole?.roleArn,
-        };
-      }
-
       bakeStepSettings[actionName] = {
-        alarmSettings,
         bakeTimeMillis: settings.bakeTime.toMilliseconds(),
       };
     });

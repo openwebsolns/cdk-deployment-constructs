@@ -339,70 +339,9 @@ The tree node.
 
 ## Structs <a name="Structs" id="Structs"></a>
 
-### BakeStepAlarmProps <a name="BakeStepAlarmProps" id="cdk-deployment-constructs.BakeStepAlarmProps"></a>
-
-#### Initializer <a name="Initializer" id="cdk-deployment-constructs.BakeStepAlarmProps.Initializer"></a>
-
-```typescript
-import { BakeStepAlarmProps } from 'cdk-deployment-constructs'
-
-const bakeStepAlarmProps: BakeStepAlarmProps = { ... }
-```
-
-#### Properties <a name="Properties" id="Properties"></a>
-
-| **Name** | **Type** | **Description** |
-| --- | --- | --- |
-| <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps.property.alarm">alarm</a></code> | <code>aws-cdk-lib.aws_cloudwatch.IAlarm</code> | The name of the alarm to monitor. |
-| <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps.property.assumeRole">assumeRole</a></code> | <code>aws-cdk-lib.aws_iam.IRole</code> | Role to assume in order to describe the alarm history. |
-| <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps.property.treatMissingAlarm">treatMissingAlarm</a></code> | <code>string</code> | Specify approval behavior if the alarm cannot be described. |
-
----
-
-##### `alarm`<sup>Required</sup> <a name="alarm" id="cdk-deployment-constructs.BakeStepAlarmProps.property.alarm"></a>
-
-```typescript
-public readonly alarm: IAlarm;
-```
-
-- *Type:* aws-cdk-lib.aws_cloudwatch.IAlarm
-
-The name of the alarm to monitor.
-
----
-
-##### `assumeRole`<sup>Optional</sup> <a name="assumeRole" id="cdk-deployment-constructs.BakeStepAlarmProps.property.assumeRole"></a>
-
-```typescript
-public readonly assumeRole: IRole;
-```
-
-- *Type:* aws-cdk-lib.aws_iam.IRole
-
-Role to assume in order to describe the alarm history.
-
-For cross-account support, first create this role in the target account
-and add trust policy that trusts the pipeline account to assume it.
-
----
-
-##### `treatMissingAlarm`<sup>Optional</sup> <a name="treatMissingAlarm" id="cdk-deployment-constructs.BakeStepAlarmProps.property.treatMissingAlarm"></a>
-
-```typescript
-public readonly treatMissingAlarm: string;
-```
-
-- *Type:* string
-
-Specify approval behavior if the alarm cannot be described.
-
-Default: `REJECT`. Set to `IGNORE` if the alarm may not yet be created.
-Note that failure to assume the role (if applicable) may also result in a
-rejected approval.
-
----
-
 ### BakeStepProps <a name="BakeStepProps" id="cdk-deployment-constructs.BakeStepProps"></a>
+
+Props for creating a stage/wave bake approval step.
 
 #### Initializer <a name="Initializer" id="cdk-deployment-constructs.BakeStepProps.Initializer"></a>
 
@@ -417,7 +356,6 @@ const bakeStepProps: BakeStepProps = { ... }
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
 | <code><a href="#cdk-deployment-constructs.BakeStepProps.property.bakeTime">bakeTime</a></code> | <code>aws-cdk-lib.Duration</code> | How long to wait before approving the step. |
-| <code><a href="#cdk-deployment-constructs.BakeStepProps.property.rejectOnAlarm">rejectOnAlarm</a></code> | <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps">BakeStepAlarmProps</a></code> | Optionally watch the given alarm and reject if it fires. |
 
 ---
 
@@ -430,18 +368,6 @@ public readonly bakeTime: Duration;
 - *Type:* aws-cdk-lib.Duration
 
 How long to wait before approving the step.
-
----
-
-##### `rejectOnAlarm`<sup>Optional</sup> <a name="rejectOnAlarm" id="cdk-deployment-constructs.BakeStepProps.property.rejectOnAlarm"></a>
-
-```typescript
-public readonly rejectOnAlarm: BakeStepAlarmProps;
-```
-
-- *Type:* <a href="#cdk-deployment-constructs.BakeStepAlarmProps">BakeStepAlarmProps</a>
-
-Optionally watch the given alarm and reject if it fires.
 
 ---
 
