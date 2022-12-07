@@ -1,6 +1,9 @@
 import { Context } from 'aws-lambda';
 import * as aws from 'aws-sdk';
-import { DeploymentSafetySettings } from './common';
+import {
+  BakeStepSettings,
+  DeploymentSafetySettings,
+} from './common';
 
 interface DisableReason {
   readonly actor: string;
@@ -15,11 +18,26 @@ interface PipelineTransitionAction {
   readonly error?: string;
 }
 
+interface BakeStepApprovalProps {
+  readonly pipelineName: string;
+  readonly stageName: string;
+  readonly actionName: string;
+  readonly actionExecutionId: string;
+  readonly pipelineExecutionId: string;
+  readonly token: string;
+}
+
+interface BakeStepAction {
+  decision: 'APPROVE' | 'REJECT' | 'CONTINUE' | 'DONE';
+  actionName: string;
+  approvalProps?: BakeStepApprovalProps;
+}
+
 const codepipeline = new aws.CodePipeline();
 const ssm = new aws.SSM();
 
 const toMarkdown = (reason: DisableReason) =>
-  '```' + JSON.stringify(reason) + '```';
+  '```\n' + JSON.stringify(reason, null, 2) + '\n```';
 
 const getCalendarStates = async (calendarNames: string[]) => {
   const states: Record<string, string> = {};
@@ -130,6 +148,101 @@ export const calculatePipelineTransitionActions = (
   });
 };
 
+const calculateBakeActions = async (
+  pipelineState: aws.CodePipeline.GetPipelineStateOutput,
+  bakeSteps: Record<string, BakeStepSettings>,
+) => {
+  const pipelineName = pipelineState.pipelineName!;
+  const stageStates = pipelineState.stageStates ?? [];
+  const decisions: BakeStepAction[] = [];
+
+  // 1. determine bake steps in progress
+  const inProgress: Record<string, BakeStepApprovalProps[]> = {};
+  stageStates.forEach((stage) => {
+    stage.actionStates!
+      .filter((a) => a.actionName! in bakeSteps)
+      .forEach((action) => {
+        if (action.latestExecution?.status === 'InProgress') {
+          const pipelineExecutionId = stage.latestExecution!.pipelineExecutionId!;
+          if (!(pipelineExecutionId in inProgress)) {
+            inProgress[pipelineExecutionId] = [];
+          }
+          inProgress[pipelineExecutionId].push({
+            pipelineName,
+            pipelineExecutionId,
+            stageName: stage.stageName!,
+            actionName: action.actionName!,
+            token: action.latestExecution!.token!,
+            actionExecutionId: action.latestExecution!.actionExecutionId!,
+          });
+        } else {
+          decisions.push({
+            decision: 'DONE',
+            actionName: action.actionName!,
+          });
+        }
+      });
+  });
+
+  // 2. Determine start time for in progress actions by querying action
+  // executions, grouped by pipeline execution ID
+  const startTimes: Record<string, Date> = {};
+  await Promise.all(Object.values(inProgress).map(async (actions) => {
+    const remainingActions = new Set(actions.map((a) => a.actionExecutionId));
+
+    let nextToken: string | undefined;
+    do {
+      const results = await codepipeline.listActionExecutions({
+        pipelineName: actions[0]!.pipelineName,
+        filter: {
+          pipelineExecutionId: actions[0]!.pipelineExecutionId,
+        },
+        nextToken,
+      }).promise();
+
+      nextToken = results.nextToken;
+      remainingActions.forEach((actionExecutionId) => {
+        const detail = results.actionExecutionDetails!.find((d) => d.actionExecutionId === actionExecutionId);
+        if (detail) {
+          startTimes[detail.actionName!] = detail.startTime!;
+          remainingActions.delete(actionExecutionId);
+        }
+      });
+
+      // actionExecutionDetails!.
+    } while (nextToken && remainingActions.size > 0);
+
+    if (remainingActions.size > 0) {
+      throw new Error(`Unable to find start times for ${new Array(...remainingActions)}`);
+    }
+  }));
+
+  // 3. decide fate of in progress based on start times
+  const now = Date.now();
+  await Promise.all(
+    Object.values(inProgress).flatMap((props) => props).map(async (props) => {
+      const bakeStep = bakeSteps[props.actionName];
+      const startTime = startTimes[props.actionName];
+      const endTime = startTime.getTime() + bakeStep.bakeTimeMillis;
+
+      if (endTime < now) {
+        decisions.push({
+          decision: 'APPROVE',
+          actionName: props.actionName,
+          approvalProps: props,
+        });
+      }
+
+      decisions.push({
+        decision: 'CONTINUE',
+        actionName: props.actionName,
+      });
+    }),
+  );
+
+  return decisions;
+};
+
 /**
  * Main logic for enforcer.
  */
@@ -147,8 +260,11 @@ const execute = async (
     requestId,
   );
 
+  const bakeActions = await calculateBakeActions(pipelineState, settings.bakeSteps);
+
   // 2. perform actions in proper sequence
-  console.log('Transition action summary', transitionActions);
+  console.log('Transition action summary', JSON.stringify(transitionActions));
+  console.log('Bake action summary', JSON.stringify(bakeActions));
 
   // first: disable any transitions that should be closed to avoid pipeline
   // executions being promoted to them when other actions are approved
@@ -162,6 +278,22 @@ const execute = async (
           reason: toMarkdown(action.disableReason!),
         })
         .promise(),
+    ),
+  );
+
+  // second: approve all bake times
+  await Promise.all(
+    bakeActions.filter((a) => a.decision === 'APPROVE').map(({ approvalProps }) =>
+      codepipeline.putApprovalResult({
+        actionName: approvalProps!.actionName!,
+        pipelineName: approvalProps!.pipelineName!,
+        stageName: approvalProps!.stageName!,
+        token: approvalProps!.token!,
+        result: {
+          status: 'Approved',
+          summary: `Approved by DeploymentSafetyEnforcer@${requestId}`,
+        },
+      }).promise(),
     ),
   );
 

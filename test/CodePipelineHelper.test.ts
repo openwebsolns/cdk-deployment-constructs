@@ -1,5 +1,6 @@
-import { App, Stack, Stage } from 'aws-cdk-lib';
+import { App, Duration, Stack, Stage } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
+import { Alarm } from 'aws-cdk-lib/aws-cloudwatch';
 import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { CodePipelineHelper } from '../src/index';
@@ -24,10 +25,29 @@ const pipeline = new CodePipeline(stack, 'Pipeline', {
 const tester = new CodePipelineHelper(stack, 'PipelineHelper', { pipeline });
 
 const wave1 = pipeline.addWave('Wave1');
-wave1.addStage(new MockStage(stack, 'FirstStage'));
+wave1.addStage(new MockStage(stack, 'FirstStage'), {
+  post: [
+    tester.newBakeStep('Bake-FirstStage', {
+      bakeTime: Duration.hours(2),
+      rejectOnAlarm: {
+        alarm: Alarm.fromAlarmArn(
+          stack,
+          'RollbackAlarm',
+          'arn:aws:cloudwatch:us-west-2:000011112222:alarm:Rollback',
+        ),
+      },
+    }),
+  ],
+});
 tester.blockWaveOnChangeCalendars(wave1, ['Calendar1']);
 
-const wave2 = pipeline.addWave('Wave2');
+const wave2 = pipeline.addWave('Wave2', {
+  post: [
+    tester.newBakeStep('Bake-Wave2', {
+      bakeTime: Duration.hours(2),
+    }),
+  ],
+});
 wave2.addStage(new MockStage(stack, 'SecondStage'));
 wave2.addStage(new MockStage(stack, 'ThirdStage'));
 tester.blockWaveOnChangeCalendars(wave2, ['Calendar2']);

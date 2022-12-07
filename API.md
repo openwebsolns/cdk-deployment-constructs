@@ -72,6 +72,7 @@ new CodePipelineHelper(scope: Construct, id: string, props: CodePipelineHelperPr
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.blockStageOnChangeCalendars">blockStageOnChangeCalendars</a></code> | Adds or updates Change Calendar blockers for a given stage. |
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.blockWaveOnChangeCalendars">blockWaveOnChangeCalendars</a></code> | Adds or updates Change Calendar blockers for a given stage. |
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.buildEnforcer">buildEnforcer</a></code> | Performs one-time building of resources. May not be called multiple times. |
+| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.newBakeStep">newBakeStep</a></code> | An approval step that waits a specified amount of time. |
 
 ---
 
@@ -150,6 +151,30 @@ public buildEnforcer(): void
 Performs one-time building of resources. May not be called multiple times.
 
 This method is automatically invoked on application synthesis.
+
+##### `newBakeStep` <a name="newBakeStep" id="cdk-deployment-constructs.CodePipelineHelper.newBakeStep"></a>
+
+```typescript
+public newBakeStep(id: string, props: BakeStepProps): ManualApprovalStep
+```
+
+An approval step that waits a specified amount of time.
+
+Creates a new `Step` with a unique `id` using given prefix.
+
+###### `id`<sup>Required</sup> <a name="id" id="cdk-deployment-constructs.CodePipelineHelper.newBakeStep.parameter.id"></a>
+
+- *Type:* string
+
+must be unique across all bake steps.
+
+---
+
+###### `props`<sup>Required</sup> <a name="props" id="cdk-deployment-constructs.CodePipelineHelper.newBakeStep.parameter.props"></a>
+
+- *Type:* <a href="#cdk-deployment-constructs.BakeStepProps">BakeStepProps</a>
+
+---
 
 #### Static Functions <a name="Static Functions" id="Static Functions"></a>
 
@@ -314,6 +339,112 @@ The tree node.
 
 ## Structs <a name="Structs" id="Structs"></a>
 
+### BakeStepAlarmProps <a name="BakeStepAlarmProps" id="cdk-deployment-constructs.BakeStepAlarmProps"></a>
+
+#### Initializer <a name="Initializer" id="cdk-deployment-constructs.BakeStepAlarmProps.Initializer"></a>
+
+```typescript
+import { BakeStepAlarmProps } from 'cdk-deployment-constructs'
+
+const bakeStepAlarmProps: BakeStepAlarmProps = { ... }
+```
+
+#### Properties <a name="Properties" id="Properties"></a>
+
+| **Name** | **Type** | **Description** |
+| --- | --- | --- |
+| <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps.property.alarm">alarm</a></code> | <code>aws-cdk-lib.aws_cloudwatch.IAlarm</code> | The name of the alarm to monitor. |
+| <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps.property.assumeRole">assumeRole</a></code> | <code>aws-cdk-lib.aws_iam.IRole</code> | Role to assume in order to describe the alarm history. |
+| <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps.property.treatMissingAlarm">treatMissingAlarm</a></code> | <code>string</code> | Specify approval behavior if the alarm cannot be described. |
+
+---
+
+##### `alarm`<sup>Required</sup> <a name="alarm" id="cdk-deployment-constructs.BakeStepAlarmProps.property.alarm"></a>
+
+```typescript
+public readonly alarm: IAlarm;
+```
+
+- *Type:* aws-cdk-lib.aws_cloudwatch.IAlarm
+
+The name of the alarm to monitor.
+
+---
+
+##### `assumeRole`<sup>Optional</sup> <a name="assumeRole" id="cdk-deployment-constructs.BakeStepAlarmProps.property.assumeRole"></a>
+
+```typescript
+public readonly assumeRole: IRole;
+```
+
+- *Type:* aws-cdk-lib.aws_iam.IRole
+
+Role to assume in order to describe the alarm history.
+
+For cross-account support, first create this role in the target account
+and add trust policy that trusts the pipeline account to assume it.
+
+---
+
+##### `treatMissingAlarm`<sup>Optional</sup> <a name="treatMissingAlarm" id="cdk-deployment-constructs.BakeStepAlarmProps.property.treatMissingAlarm"></a>
+
+```typescript
+public readonly treatMissingAlarm: string;
+```
+
+- *Type:* string
+
+Specify approval behavior if the alarm cannot be described.
+
+Default: `REJECT`. Set to `IGNORE` if the alarm may not yet be created.
+Note that failure to assume the role (if applicable) may also result in a
+rejected approval.
+
+---
+
+### BakeStepProps <a name="BakeStepProps" id="cdk-deployment-constructs.BakeStepProps"></a>
+
+#### Initializer <a name="Initializer" id="cdk-deployment-constructs.BakeStepProps.Initializer"></a>
+
+```typescript
+import { BakeStepProps } from 'cdk-deployment-constructs'
+
+const bakeStepProps: BakeStepProps = { ... }
+```
+
+#### Properties <a name="Properties" id="Properties"></a>
+
+| **Name** | **Type** | **Description** |
+| --- | --- | --- |
+| <code><a href="#cdk-deployment-constructs.BakeStepProps.property.bakeTime">bakeTime</a></code> | <code>aws-cdk-lib.Duration</code> | How long to wait before approving the step. |
+| <code><a href="#cdk-deployment-constructs.BakeStepProps.property.rejectOnAlarm">rejectOnAlarm</a></code> | <code><a href="#cdk-deployment-constructs.BakeStepAlarmProps">BakeStepAlarmProps</a></code> | Optionally watch the given alarm and reject if it fires. |
+
+---
+
+##### `bakeTime`<sup>Required</sup> <a name="bakeTime" id="cdk-deployment-constructs.BakeStepProps.property.bakeTime"></a>
+
+```typescript
+public readonly bakeTime: Duration;
+```
+
+- *Type:* aws-cdk-lib.Duration
+
+How long to wait before approving the step.
+
+---
+
+##### `rejectOnAlarm`<sup>Optional</sup> <a name="rejectOnAlarm" id="cdk-deployment-constructs.BakeStepProps.property.rejectOnAlarm"></a>
+
+```typescript
+public readonly rejectOnAlarm: BakeStepAlarmProps;
+```
+
+- *Type:* <a href="#cdk-deployment-constructs.BakeStepAlarmProps">BakeStepAlarmProps</a>
+
+Optionally watch the given alarm and reject if it fires.
+
+---
+
 ### CodePipelineHelperProps <a name="CodePipelineHelperProps" id="cdk-deployment-constructs.CodePipelineHelperProps"></a>
 
 Properties for `CodePipelineHelper`.
@@ -378,6 +509,7 @@ const deploymentSafetyEnforcerProps: DeploymentSafetyEnforcerProps = { ... }
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.pipeline">pipeline</a></code> | <code>aws-cdk-lib.aws_codepipeline.Pipeline</code> | The pipeline to enforce. |
+| <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.bakeSteps">bakeSteps</a></code> | <code>{[ key: string ]: <a href="#cdk-deployment-constructs.BakeStepProps">BakeStepProps</a>}</code> | Bake step configurations, indexed by manual approval action name. |
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.changeCalendars">changeCalendars</a></code> | <code>{[ key: string ]: string[]}</code> | SSM Change Calendars to consult for promotions into a given stage. |
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.enforcementFrequency">enforcementFrequency</a></code> | <code>aws-cdk-lib.Duration</code> | How often to run the enforcer. |
 
@@ -392,6 +524,22 @@ public readonly pipeline: Pipeline;
 - *Type:* aws-cdk-lib.aws_codepipeline.Pipeline
 
 The pipeline to enforce.
+
+---
+
+##### `bakeSteps`<sup>Optional</sup> <a name="bakeSteps" id="cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.bakeSteps"></a>
+
+```typescript
+public readonly bakeSteps: {[ key: string ]: BakeStepProps};
+```
+
+- *Type:* {[ key: string ]: <a href="#cdk-deployment-constructs.BakeStepProps">BakeStepProps</a>}
+
+Bake step configurations, indexed by manual approval action name.
+
+Bake steps are manual approval steps that are automatically approved
+after a certain period of time, artificially slowing down a pipeline
+execution in order to give time for data to arrive.
 
 ---
 

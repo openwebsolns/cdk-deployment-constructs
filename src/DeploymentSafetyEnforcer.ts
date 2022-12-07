@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
@@ -7,6 +8,43 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as common from './common';
+
+export interface BakeStepAlarmProps {
+  /**
+   * The name of the alarm to monitor.
+   */
+  readonly alarm: cloudwatch.IAlarm;
+
+  /**
+   * Role to assume in order to describe the alarm history.
+   *
+   * For cross-account support, first create this role in the target account
+   * and add trust policy that trusts the pipeline account to assume it.
+   */
+  readonly assumeRole?: iam.IRole;
+
+  /**
+   * Specify approval behavior if the alarm cannot be described.
+   *
+   * Default: `REJECT`. Set to `IGNORE` if the alarm may not yet be created.
+   * Note that failure to assume the role (if applicable) may also result in a
+   * rejected approval.
+   */
+  readonly treatMissingAlarm?: 'IGNORE' | 'REJECT';
+
+}
+
+export interface BakeStepProps {
+  /**
+   * How long to wait before approving the step.
+   */
+  readonly bakeTime: cdk.Duration;
+
+  /**
+   * Optionally watch the given alarm and reject if it fires.
+   */
+  readonly rejectOnAlarm?: BakeStepAlarmProps;
+}
 
 /**
  * Properties for `DeploymentSafetyEnforcer`.
@@ -21,6 +59,15 @@ export interface DeploymentSafetyEnforcerProps {
    * SSM Change Calendars to consult for promotions into a given stage.
    */
   readonly changeCalendars?: Record<string, string[]>;
+
+  /**
+   * Bake step configurations, indexed by manual approval action name.
+   *
+   * Bake steps are manual approval steps that are automatically approved
+   * after a certain period of time, artificially slowing down a pipeline
+   * execution in order to give time for data to arrive.
+   */
+  readonly bakeSteps?: Record<string, BakeStepProps>;
 
   /**
    * How often to run the enforcer.
@@ -63,7 +110,7 @@ export class DeploymentSafetyEnforcer extends Construct {
     );
 
     const changeCalendars = props.changeCalendars ?? {};
-    if (Object.keys(changeCalendars).length > 0) {
+    if (Object.values(changeCalendars).flatMap((c) => c).length > 0) {
       enforcerFunction.addToRolePolicy(
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
@@ -84,9 +131,61 @@ export class DeploymentSafetyEnforcer extends Construct {
       );
     }
 
+    const bakeSteps = props.bakeSteps ?? {};
+    if (Object.keys(bakeSteps).length > 0) {
+      enforcerFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'codepipeline:ListActionExecutions',
+            'codepipeline:PutApprovalResult',
+          ],
+          resources: [
+            props.pipeline.pipelineArn,
+            `${props.pipeline.pipelineArn}/*`,
+          ],
+        }),
+      );
+
+      const alarmHistoryRoles = new Set(
+        ...Object.values(props.bakeSteps!)
+          .filter((s) => s.rejectOnAlarm?.assumeRole !== undefined)
+          .map(({ rejectOnAlarm }) => rejectOnAlarm!.assumeRole!.roleArn),
+      );
+      if (alarmHistoryRoles.size > 0) {
+        enforcerFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+              'sts:AssumeRole',
+            ],
+            resources: new Array(...alarmHistoryRoles),
+          }),
+        );
+      }
+    }
+
+    const bakeStepSettings: Record<string, common.BakeStepSettings> = {};
+    Object.entries(bakeSteps).forEach(([actionName, settings]) => {
+      let alarmSettings: common.BakeStepAlarmSettings | undefined;
+      if (settings.rejectOnAlarm) {
+        alarmSettings = {
+          alarmName: settings.rejectOnAlarm.alarm.alarmName,
+          treatMissingAlarm: settings.rejectOnAlarm.treatMissingAlarm ?? 'REJECT',
+          assumeRoleArn: settings.rejectOnAlarm.assumeRole?.roleArn,
+        };
+      }
+
+      bakeStepSettings[actionName] = {
+        alarmSettings,
+        bakeTimeMillis: settings.bakeTime.toMilliseconds(),
+      };
+    });
+
     const input: common.DeploymentSafetySettings = {
       pipelineName: props.pipeline.pipelineName,
       changeCalendars: props.changeCalendars ?? {},
+      bakeSteps: bakeStepSettings,
     };
 
     new events.Rule(this, 'ScheduleEnforcer', {
