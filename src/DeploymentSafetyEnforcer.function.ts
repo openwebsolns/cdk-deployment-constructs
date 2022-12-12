@@ -1,6 +1,7 @@
 import { Context } from 'aws-lambda';
 import * as aws from 'aws-sdk';
 import {
+  BakeStepAlarmSettings,
   BakeStepSettings,
   DeploymentSafetySettings,
 } from './common';
@@ -30,6 +31,7 @@ interface BakeStepApprovalProps {
 interface BakeStepAction {
   decision: 'APPROVE' | 'REJECT' | 'CONTINUE' | 'DONE';
   actionName: string;
+  rejectReasons?: string[];
   approvalProps?: BakeStepApprovalProps;
 }
 
@@ -84,6 +86,68 @@ const transitionDisabledByEnforcer = (reason?: string) => {
   }
 
   return true;
+};
+
+interface AlarmStateQuery {
+  readonly alarmName: string;
+  readonly startTime: Date;
+  readonly treatMissingAlarm: string;
+}
+
+const getAlarmStates = async (
+  alarms: AlarmStateQuery[],
+  cloudwatchClient: aws.CloudWatch,
+) => {
+  let results: aws.CloudWatch.DescribeAlarmsOutput;
+  try {
+    results = await cloudwatchClient.describeAlarms({
+      AlarmNames: alarms.map((a) => a.alarmName),
+      AlarmTypes: ['MetricAlarm', 'CompositeAlarm'],
+    }).promise();
+  } catch (err) {
+    console.log('Received error while describing alarms', err);
+    results = {};
+  }
+
+  const resultsLookup: Record<string, aws.CloudWatch.MetricAlarm | aws.CloudWatch.CompositeAlarm> = {};
+  [
+    ...(results.MetricAlarms ?? []),
+    ...(results.CompositeAlarms ?? []),
+  ].forEach((alarm) => resultsLookup[alarm.AlarmName!] = alarm);
+
+  return alarms.map((alarm) => {
+    if (!(alarm.alarmName in resultsLookup)) {
+      console.log(`Alarm ${alarm.alarmName}: not found when describing`);
+      return {
+        alarm,
+        state: 'MISSING',
+      };
+    }
+
+    const state = resultsLookup[alarm.alarmName];
+    if (state.StateValue !== 'OK') {
+      console.log(`Alarm ${alarm.alarmName}: currently in state ${state.StateValue}`);
+      return {
+        alarm,
+        state: 'IN_ALARM',
+      };
+    }
+
+    if (state.StateUpdatedTimestamp && state.StateUpdatedTimestamp > alarm.startTime) {
+      // while it has recovered, it went into alarm since the start of the action
+      console.log(`Alarm ${alarm.alarmName}: transitioned on ${state.StateUpdatedTimestamp} > bake start ${alarm.startTime}`);
+      return {
+        alarm,
+        state: 'IN_ALARM',
+      };
+    }
+
+    console.log(`Alarm ${alarm.alarmName}: OK`);
+    return {
+      alarm,
+      state: 'OK',
+    };
+  });
 };
 
 export const calculatePipelineTransitionActions = (
@@ -218,6 +282,11 @@ const calculateBakeActions = async (
   }));
 
   // 3. decide fate of in progress based on start times
+  const pendingAlarmDecision: {
+    readonly approvalProps: BakeStepApprovalProps;
+    readonly alarmSettings: BakeStepAlarmSettings[];
+  }[] = [];
+
   const now = Date.now();
   await Promise.all(
     Object.values(inProgress).flatMap((props) => props).map(async (props) => {
@@ -231,14 +300,89 @@ const calculateBakeActions = async (
           actionName: props.actionName,
           approvalProps: props,
         });
+        return;
       }
 
-      decisions.push({
-        decision: 'CONTINUE',
-        actionName: props.actionName,
+      if ((bakeStep.alarmSettings ?? []).length > 0) {
+        pendingAlarmDecision.push({
+          approvalProps: props,
+          alarmSettings: bakeStep.alarmSettings!,
+        });
+      } else {
+        decisions.push({
+          decision: 'CONTINUE',
+          actionName: props.actionName,
+        });
+      }
+    }),
+  );
+
+  // 4. check for alarm decisions next
+  // For efficiency, group the alarm ARNs by '<region>\n<roleArn>', using special
+  // placeholder value for those with no roles, so that we can use a single SDK
+  // client and call for all alarms in that group.
+  const NO_ROLE_PLACEHOLDER = 'NO-ROLE';
+  const alarmNamesByRoleArn: Record<string, AlarmStateQuery[]> = {};
+  pendingAlarmDecision.forEach(({ approvalProps, alarmSettings }) => {
+    alarmSettings.forEach(({ alarmName, assumeRoleArn, treatMissingAlarm, region }) => {
+      const key = `${region}\n${assumeRoleArn ?? NO_ROLE_PLACEHOLDER}`;
+      if (!(key in alarmNamesByRoleArn)) {
+        alarmNamesByRoleArn[key] = [];
+      }
+      alarmNamesByRoleArn[key].push({
+        alarmName,
+        treatMissingAlarm: treatMissingAlarm ?? 'REJECT',
+        startTime: startTimes[approvalProps.actionName],
+      });
+    });
+  });
+
+  const failedAlarmsByName = new Set<string>();
+  await Promise.all(
+    Object.entries(alarmNamesByRoleArn).map(async ([roleArnKey, alarms]) => {
+      const [region, roleArn] = roleArnKey.split('\n');
+      let credentials: aws.Credentials | undefined;
+      if (roleArn !== NO_ROLE_PLACEHOLDER) {
+        credentials = new aws.ChainableTemporaryCredentials({
+          params: {
+            RoleArn: roleArn,
+            RoleSessionName: 'DeploymentSafetyEnforcer',
+          },
+        });
+
+      }
+      const cloudwatchClient = new aws.CloudWatch({
+        credentials,
+        region,
+      });
+
+      const results = await getAlarmStates(alarms, cloudwatchClient);
+      results.forEach(({ alarm, state }) => {
+        if (state === 'IN_ALARM') {
+          failedAlarmsByName.add(alarm.alarmName);
+        } else if (state === 'MISSING' && alarm.treatMissingAlarm === 'REJECT') {
+          failedAlarmsByName.add(alarm.alarmName);
+        }
       });
     }),
   );
+
+  pendingAlarmDecision.forEach(({ approvalProps, alarmSettings }) => {
+    const failedAlarms = alarmSettings.filter((alarm) => failedAlarmsByName.has(alarm.alarmName));
+    if (failedAlarms.length > 0) {
+      decisions.push({
+        approvalProps,
+        decision: 'REJECT',
+        actionName: approvalProps.actionName,
+        rejectReasons: failedAlarms.map((a) => a.alarmName),
+      });
+    } else {
+      decisions.push({
+        decision: 'CONTINUE',
+        actionName: approvalProps.actionName,
+      });
+    }
+  });
 
   return decisions;
 };
@@ -281,7 +425,21 @@ const execute = async (
     ),
   );
 
-  // second: approve all bake times
+  // second: reject/approve all bake times
+  await Promise.all(
+    bakeActions.filter((a) => a.decision === 'REJECT').map(({ approvalProps, rejectReasons }) =>
+      codepipeline.putApprovalResult({
+        actionName: approvalProps!.actionName!,
+        pipelineName: approvalProps!.pipelineName!,
+        stageName: approvalProps!.stageName!,
+        token: approvalProps!.token!,
+        result: {
+          status: 'Rejected',
+          summary: `DeploymentSafetyEnforcer@${requestId} due to ${rejectReasons?.join(', ')}`,
+        },
+      }).promise(),
+    ),
+  );
   await Promise.all(
     bakeActions.filter((a) => a.decision === 'APPROVE').map(({ approvalProps }) =>
       codepipeline.putApprovalResult({
