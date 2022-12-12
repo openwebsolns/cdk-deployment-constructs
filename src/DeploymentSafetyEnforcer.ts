@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
@@ -9,6 +10,34 @@ import { Construct } from 'constructs';
 import * as common from './common';
 
 /**
+ * Alarm to inspect in bake step.
+ */
+export interface BakeStepAlarmProps {
+  /**
+   * The name of the alarm to monitor.
+   */
+  readonly alarm: cloudwatch.IAlarm;
+
+  /**
+   * Role to assume in order to describe the alarm history.
+   *
+   * For cross-account support, first create this role in the target account
+   * and add trust policy that trusts the pipeline account to assume it.
+   */
+  readonly assumeRole?: iam.IRole;
+
+  /**
+   * Specify approval behavior if the alarm cannot be described.
+   *
+   * Default: `REJECT`. Set to `IGNORE` if the alarm may not yet be created.
+   * Note that failure to assume the role (if applicable) may also result in a
+   * rejected approval.
+   */
+  readonly treatMissingAlarm?: 'IGNORE' | 'REJECT';
+
+}
+
+/**
  * Props for creating a stage/wave bake approval step.
  */
 export interface BakeStepProps {
@@ -16,6 +45,11 @@ export interface BakeStepProps {
    * How long to wait before approving the step.
    */
   readonly bakeTime: cdk.Duration;
+
+  /**
+   * Optionally watch the given alarm and reject if it fires.
+   */
+  readonly rejectOnAlarms?: BakeStepAlarmProps[];
 }
 
 /**
@@ -118,12 +152,56 @@ export class DeploymentSafetyEnforcer extends Construct {
           ],
         }),
       );
+
+      const alarmHistoryRoles = new Set<string>();
+      const alarmArns = new Set<string>();
+      Object.values(props.bakeSteps!)
+        .flatMap((s) => s.rejectOnAlarms ?? [])
+        .forEach((alarm) => {
+          if (alarm.assumeRole) {
+            alarmHistoryRoles.add(alarm.assumeRole.roleArn);
+          } else {
+            // only need explicit alarm permission if role is not provided,
+            // as permissions are otherwise conferred by the role itself
+            alarmArns.add(alarm.alarm.alarmArn);
+          }
+        });
+
+      if (alarmHistoryRoles.size > 0) {
+        enforcerFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+              'sts:AssumeRole',
+            ],
+            resources: new Array(...alarmHistoryRoles),
+          }),
+        );
+      }
+
+      if (alarmArns.size > 0) {
+        enforcerFunction.addToRolePolicy(
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+              'cloudwatch:DescribeAlarms',
+            ],
+            resources: ['*'], // IAM requires this level for given operation
+          }),
+        );
+      }
     }
 
     const bakeStepSettings: Record<string, common.BakeStepSettings> = {};
     Object.entries(bakeSteps).forEach(([actionName, settings]) => {
       bakeStepSettings[actionName] = {
         bakeTimeMillis: settings.bakeTime.toMilliseconds(),
+        alarmSettings: (settings.rejectOnAlarms ?? []).map((s) => ({
+          alarmName: s.alarm.alarmName,
+          region: s.alarm.alarmArn.split(':')[3],
+          assumeRoleArn: s.assumeRole?.roleArn,
+          treatMissingAlarm: s.treatMissingAlarm ?? 'REJECT',
+        })),
       };
     });
 

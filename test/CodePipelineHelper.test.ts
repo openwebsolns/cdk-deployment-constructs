@@ -1,5 +1,6 @@
 import { App, Duration, Stack, Stage } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
+import { Alarm } from 'aws-cdk-lib/aws-cloudwatch';
 import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { CodePipelineHelper } from '../src/index';
@@ -28,6 +29,15 @@ wave1.addStage(new MockStage(stack, 'FirstStage'), {
   post: [
     tester.newBakeStep('Bake-FirstStage', {
       bakeTime: Duration.hours(2),
+      rejectOnAlarms: [
+        {
+          alarm: Alarm.fromAlarmArn(
+            stack,
+            'RollbackAlarm',
+            'arn:aws:cloudwatch:us-west-2:000011112222:alarm:Rollback',
+          ),
+        },
+      ],
     }),
   ],
 });

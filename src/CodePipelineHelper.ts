@@ -129,7 +129,13 @@ export class CodePipelineHelper extends Construct {
     this.bakeSteps[id] = props;
 
     return new pipelines.ManualApprovalStep(id, {
-      comment: `DeploymentSafetyEnforcer/bake for ${props.bakeTime.toHumanString()}`,
+      comment: `DeploymentSafetyEnforcer/bake for ${
+        props.bakeTime.toHumanString()
+      }${
+        props.rejectOnAlarms
+          ? ` with alarms ${props.rejectOnAlarms.map((s) => s.alarm.alarmName)}`
+          : ''
+      }`,
     });
   }
 
