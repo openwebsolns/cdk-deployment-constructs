@@ -5,6 +5,7 @@
 CDK constructs for safe deployment of code via AWS CodeSuite.
 
 * Disable/enable CodePipeline transitions based on one or more SSM Change Calendars
+* Bake steps with support for alarms
 
 ## Installation
 
@@ -32,6 +33,29 @@ In your `package.json`:
 ## Features
 
 You can browse the documentation at https://constructs.dev/packages/cdk-deployment-constructs/.
+
+### Bake steps
+
+A bake step is an approval step, usually added post deployments, which intentionally slows down the
+pipeline a fixed amount of time. This "bake time" can help surface issues that only arise some time
+after deployment, either due to sporadic usage or uptime-related causes (e.g. memory leaks). One or
+more CloudWatch alarms can be optionally associated with the bake step, in which case the enforcer
+will reject the approval if any of them goes into alarm during the bake time.
+
+```typescript
+import * as pipelines from 'aws-cdk-lib/pipelines';
+import * as dc from 'cdk-deployment-constructs';
+
+declare const pipeline: pipelines.CodePipeline;
+declare const helper: dc.CodePipelineHelper;
+
+const wave = pipeline.addWave("Wave1");
+wave.addPost(
+  helper.newBakeStep("Bake-Wave1", {
+    bakeTime: Duration.hours(2),
+  })
+);
+```
 
 ## Contributing/Security
 
