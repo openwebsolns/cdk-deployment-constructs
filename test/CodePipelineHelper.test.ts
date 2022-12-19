@@ -27,7 +27,7 @@ const tester = new CodePipelineHelper(stack, 'PipelineHelper', { pipeline });
 const wave1 = pipeline.addWave('Wave1');
 wave1.addStage(new MockStage(stack, 'FirstStage'), {
   post: [
-    tester.newBakeStep('Bake-FirstStage', {
+    tester.newWaveBakeStep('Bake-FirstStage', {
       bakeTime: Duration.hours(2),
       rejectOnAlarms: [
         {
@@ -45,7 +45,7 @@ tester.blockWaveOnChangeCalendars(wave1, ['Calendar1']);
 
 const wave2 = pipeline.addWave('Wave2', {
   post: [
-    tester.newBakeStep('Bake-Wave2', {
+    tester.newWaveBakeStep('Bake-Wave2', {
       bakeTime: Duration.hours(2),
     }),
   ],

@@ -72,7 +72,7 @@ new CodePipelineHelper(scope: Construct, id: string, props: CodePipelineHelperPr
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.blockStageOnChangeCalendars">blockStageOnChangeCalendars</a></code> | Adds or updates Change Calendar blockers for a given stage. |
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.blockWaveOnChangeCalendars">blockWaveOnChangeCalendars</a></code> | Adds or updates Change Calendar blockers for a given stage. |
 | <code><a href="#cdk-deployment-constructs.CodePipelineHelper.buildEnforcer">buildEnforcer</a></code> | Performs one-time building of resources. May not be called multiple times. |
-| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.newBakeStep">newBakeStep</a></code> | An approval step that waits a specified amount of time. |
+| <code><a href="#cdk-deployment-constructs.CodePipelineHelper.newWaveBakeStep">newWaveBakeStep</a></code> | An approval step that waits a specified amount of time at the wave level. |
 
 ---
 
@@ -152,17 +152,17 @@ Performs one-time building of resources. May not be called multiple times.
 
 This method is automatically invoked on application synthesis.
 
-##### `newBakeStep` <a name="newBakeStep" id="cdk-deployment-constructs.CodePipelineHelper.newBakeStep"></a>
+##### `newWaveBakeStep` <a name="newWaveBakeStep" id="cdk-deployment-constructs.CodePipelineHelper.newWaveBakeStep"></a>
 
 ```typescript
-public newBakeStep(id: string, props: BakeStepProps): ManualApprovalStep
+public newWaveBakeStep(id: string, props: BakeStepProps): Step
 ```
 
-An approval step that waits a specified amount of time.
+An approval step that waits a specified amount of time at the wave level.
 
 Creates a new `Step` with a unique `id` using given prefix.
 
-###### `id`<sup>Required</sup> <a name="id" id="cdk-deployment-constructs.CodePipelineHelper.newBakeStep.parameter.id"></a>
+###### `id`<sup>Required</sup> <a name="id" id="cdk-deployment-constructs.CodePipelineHelper.newWaveBakeStep.parameter.id"></a>
 
 - *Type:* string
 
@@ -170,7 +170,7 @@ must be unique across all bake steps.
 
 ---
 
-###### `props`<sup>Required</sup> <a name="props" id="cdk-deployment-constructs.CodePipelineHelper.newBakeStep.parameter.props"></a>
+###### `props`<sup>Required</sup> <a name="props" id="cdk-deployment-constructs.CodePipelineHelper.newWaveBakeStep.parameter.props"></a>
 
 - *Type:* <a href="#cdk-deployment-constructs.BakeStepProps">BakeStepProps</a>
 

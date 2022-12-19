@@ -28,7 +28,7 @@ export interface BakeStepAlarmSettings {
 }
 
 /**
- * Settings for `CodePipelineHelper.newBakeStep`.
+ * Settings for `CodePipelineHelper.newWaveBakeStep`.
  */
 export interface BakeStepSettings {
   /**
