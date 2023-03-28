@@ -359,16 +359,21 @@ const calculateBakeActions = async (
       const results = await getAlarmStates(alarms, cloudwatchClient);
       results.forEach(({ alarm, state }) => {
         if (state === 'IN_ALARM') {
-          failedAlarmsByName.add(alarm.alarmName);
+          failedAlarmsByName.add(`${roleArn}\n${alarm.alarmName}`);
         } else if (state === 'MISSING' && alarm.treatMissingAlarm === 'REJECT') {
-          failedAlarmsByName.add(alarm.alarmName);
+          failedAlarmsByName.add(`${roleArn}\n${alarm.alarmName}`);
         }
       });
     }),
   );
 
   pendingAlarmDecision.forEach(({ approvalProps, alarmSettings }) => {
-    const failedAlarms = alarmSettings.filter((alarm) => failedAlarmsByName.has(alarm.alarmName));
+    const failedAlarms = alarmSettings.filter(
+      (alarm) => failedAlarmsByName.has(
+        `${alarm.assumeRoleArn ?? NO_ROLE_PLACEHOLDER}\n${alarm.alarmName}`,
+      ),
+    );
+
     if (failedAlarms.length > 0) {
       decisions.push({
         approvalProps,
