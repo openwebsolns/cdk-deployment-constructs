@@ -516,6 +516,7 @@ const deploymentSafetyEnforcerProps: DeploymentSafetyEnforcerProps = { ... }
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.bakeSteps">bakeSteps</a></code> | <code>{[ key: string ]: <a href="#cdk-deployment-constructs.BakeStepProps">BakeStepProps</a>}</code> | Bake step configurations, indexed by manual approval action name. |
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.changeCalendars">changeCalendars</a></code> | <code>{[ key: string ]: string[]}</code> | SSM Change Calendars to consult for promotions into a given stage. |
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.enforcementFrequency">enforcementFrequency</a></code> | <code>aws-cdk-lib.Duration</code> | How often to run the enforcer. |
+| <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.metrics">metrics</a></code> | <code><a href="#cdk-deployment-constructs.MetricsProps">MetricsProps</a></code> | Configuration for emitting pipeline metrics. |
 
 ---
 
@@ -570,6 +571,80 @@ public readonly enforcementFrequency: Duration;
 How often to run the enforcer.
 
 Default: 10 minutes.
+
+---
+
+##### `metrics`<sup>Optional</sup> <a name="metrics" id="cdk-deployment-constructs.DeploymentSafetyEnforcerProps.property.metrics"></a>
+
+```typescript
+public readonly metrics: MetricsProps;
+```
+
+- *Type:* <a href="#cdk-deployment-constructs.MetricsProps">MetricsProps</a>
+
+Configuration for emitting pipeline metrics.
+
+---
+
+### MetricsProps <a name="MetricsProps" id="cdk-deployment-constructs.MetricsProps"></a>
+
+Props for emitting pipeline-related metrics.
+
+#### Initializer <a name="Initializer" id="cdk-deployment-constructs.MetricsProps.Initializer"></a>
+
+```typescript
+import { MetricsProps } from 'cdk-deployment-constructs'
+
+const metricsProps: MetricsProps = { ... }
+```
+
+#### Properties <a name="Properties" id="Properties"></a>
+
+| **Name** | **Type** | **Description** |
+| --- | --- | --- |
+| <code><a href="#cdk-deployment-constructs.MetricsProps.property.enabled">enabled</a></code> | <code>boolean</code> | Set to true to emit metrics on pipeline with every enforcer execution. |
+| <code><a href="#cdk-deployment-constructs.MetricsProps.property.extraMetricDimensions">extraMetricDimensions</a></code> | <code>{[ key: string ]: string}</code> | Cloudwatch dimensions to use for the metrics. Metrics are always published with no dimensions. |
+| <code><a href="#cdk-deployment-constructs.MetricsProps.property.metricNamespace">metricNamespace</a></code> | <code>string</code> | CloudWatch namespace to use for the metrics. |
+
+---
+
+##### `enabled`<sup>Required</sup> <a name="enabled" id="cdk-deployment-constructs.MetricsProps.property.enabled"></a>
+
+```typescript
+public readonly enabled: boolean;
+```
+
+- *Type:* boolean
+
+Set to true to emit metrics on pipeline with every enforcer execution.
+
+Default: true
+
+---
+
+##### `extraMetricDimensions`<sup>Optional</sup> <a name="extraMetricDimensions" id="cdk-deployment-constructs.MetricsProps.property.extraMetricDimensions"></a>
+
+```typescript
+public readonly extraMetricDimensions: {[ key: string ]: string};
+```
+
+- *Type:* {[ key: string ]: string}
+
+Cloudwatch dimensions to use for the metrics. Metrics are always published with no dimensions.
+
+Default: 'PipelineName' with value set to pipeline's name
+
+---
+
+##### `metricNamespace`<sup>Optional</sup> <a name="metricNamespace" id="cdk-deployment-constructs.MetricsProps.property.metricNamespace"></a>
+
+```typescript
+public readonly metricNamespace: string;
+```
+
+- *Type:* string
+
+CloudWatch namespace to use for the metrics.
 
 ---
 

@@ -4,6 +4,7 @@ import {
   BakeStepAlarmSettings,
   BakeStepSettings,
   DeploymentSafetySettings,
+  MetricsSettings,
 } from './common';
 
 interface DisableReason {
@@ -37,6 +38,7 @@ interface BakeStepAction {
 
 const codepipeline = new aws.CodePipeline();
 const ssm = new aws.SSM();
+const cloudwatch = new aws.CloudWatch();
 
 const toMarkdown = (reason: DisableReason) =>
   '```\n' + JSON.stringify(reason, null, 2) + '\n```';
@@ -86,6 +88,72 @@ const transitionDisabledByEnforcer = (reason?: string) => {
   }
 
   return true;
+};
+
+interface EmitMetricsArgs {
+  readonly pipelineState: aws.CodePipeline.GetPipelineStateOutput;
+  readonly requestId: string;
+  readonly rejectedBakeActions: number;
+  readonly settings: MetricsSettings;
+}
+
+const emitMetrics = async (args: EmitMetricsArgs) => {
+  const dimensions = Object.entries(args.settings.dimensionsMap ?? {})
+    .map(
+      ([name, value]) => ({
+        Name: name,
+        Value: value,
+      }));
+
+  const stages = (args.pipelineState.stageStates ?? []);
+  const actions = stages.flatMap((stage) => stage.actionStates ?? []);
+  const failedStages = actions
+    .filter((action) => action?.latestExecution?.status === 'Failed')
+    .length;
+
+  const metricData: aws.CloudWatch.MetricDatum[] = [
+    {
+      MetricName: 'FailedStages',
+      Value: failedStages + args.rejectedBakeActions,
+      Unit: 'Count',
+    },
+  ];
+
+  if (actions.length > 1) {
+    let earliestActionExecution: Date | undefined;
+    let latestActionExecution: Date | undefined;
+    for (const action of actions) {
+      if (action.latestExecution?.lastStatusChange) {
+        const time = action.latestExecution!.lastStatusChange!;
+        if (earliestActionExecution === undefined || time < earliestActionExecution) {
+          earliestActionExecution = time;
+        }
+        if (latestActionExecution === undefined || time < latestActionExecution) {
+          latestActionExecution = time;
+        }
+      }
+    }
+
+    if (earliestActionExecution && latestActionExecution) {
+      metricData.push({
+        MetricName: 'Max',
+        Value: (latestActionExecution.getTime() - earliestActionExecution.getTime()) / 1000,
+        Unit: 'Seconds',
+      });
+    }
+  }
+
+  await cloudwatch.putMetricData({
+    Namespace: args.settings.namespace!,
+    MetricData: [
+      ...metricData,
+      // create a copy with actual dimensions
+      ...metricData.map((datum) => ({
+        ...datum,
+        Dimensions: dimensions,
+      })),
+    ],
+  }).promise();
 };
 
 interface AlarmStateQuery {
@@ -431,8 +499,9 @@ const execute = async (
   );
 
   // second: reject/approve all bake times
+  const rejectBakeActions = bakeActions.filter((a) => a.decision === 'REJECT');
   await Promise.all(
-    bakeActions.filter((a) => a.decision === 'REJECT').map(({ approvalProps, rejectReasons }) =>
+    rejectBakeActions.map(({ approvalProps, rejectReasons }) =>
       codepipeline.putApprovalResult({
         actionName: approvalProps!.actionName!,
         pipelineName: approvalProps!.pipelineName!,
@@ -472,6 +541,21 @@ const execute = async (
         .promise(),
     ),
   );
+
+  // emit metrics: should be at the end
+  if (settings.metricsSettings?.enabled === true) {
+    await emitMetrics({
+      pipelineState,
+      requestId,
+      rejectedBakeActions: rejectBakeActions.length,
+      settings: settings.metricsSettings ?? {
+        namespace: 'DeploymentSafetyEnforcer',
+        dimensionsMap: {
+          PipelineName: settings.pipelineName,
+        },
+      },
+    });
+  }
 };
 
 export const handler = async (

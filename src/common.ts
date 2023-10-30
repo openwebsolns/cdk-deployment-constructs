@@ -42,6 +42,32 @@ export interface BakeStepSettings {
   readonly alarmSettings?: BakeStepAlarmSettings[];
 }
 
+/**
+ * Settings for pipeline-health metrics.
+ */
+export interface MetricsSettings {
+  /**
+   * Set to true to emit metrics on pipeline with every enforcer execution.
+   *
+   * Default: true
+   */
+  readonly enabled: boolean;
+
+  /**
+   * CloudWatch namespace to use for the metrics.
+   *
+   * Default: 'DeploymentSafetyEnforcer'
+   */
+  readonly namespace?: string;
+
+  /**
+   * Cloudwatch dimensions to use for the metrics.
+   *
+   * Default: 'PipelineName'
+   */
+  readonly dimensionsMap?: Record<string, string>;
+}
+
 export interface DeploymentSafetySettings {
   /**
    * Name of the CodePipeline associated with the settings.
@@ -57,4 +83,9 @@ export interface DeploymentSafetySettings {
    * Bake time steps indexed by unique action name.
    */
   readonly bakeSteps: Record<string, BakeStepSettings>;
+
+  /**
+   * Customize the metrics emitted.
+   */
+  readonly metricsSettings: MetricsSettings;
 }

@@ -53,6 +53,31 @@ export interface BakeStepProps {
 }
 
 /**
+ * Props for emitting pipeline-related metrics.
+ */
+export interface MetricsProps {
+  /**
+   * Set to true to emit metrics on pipeline with every enforcer execution.
+   *
+   * Default: true
+   */
+  readonly enabled: boolean;
+
+  /**
+   * CloudWatch namespace to use for the metrics.
+   */
+  readonly metricNamespace?: string;
+
+  /**
+   * Cloudwatch dimensions to use for the metrics. Metrics are always published
+   * with no dimensions.
+   *
+   * Default: 'PipelineName' with value set to pipeline's name
+   */
+  readonly extraMetricDimensions?: Record<string, string>;
+}
+
+/**
  * Properties for `DeploymentSafetyEnforcer`.
  */
 export interface DeploymentSafetyEnforcerProps {
@@ -74,6 +99,12 @@ export interface DeploymentSafetyEnforcerProps {
    * execution in order to give time for data to arrive.
    */
   readonly bakeSteps?: Record<string, BakeStepProps>;
+
+
+  /**
+   * Configuration for emitting pipeline metrics.
+   */
+  readonly metrics?: MetricsProps;
 
   /**
    * How often to run the enforcer.
@@ -192,6 +223,18 @@ export class DeploymentSafetyEnforcer extends Construct {
       }
     }
 
+    if (props.metrics?.enabled) {
+      enforcerFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'cloudwatch:PutMetricData',
+          ],
+          resources: ['*'], // IAM requires this level for given operation
+        }),
+      );
+    }
+
     const bakeStepSettings: Record<string, common.BakeStepSettings> = {};
     Object.entries(bakeSteps).forEach(([actionName, settings]) => {
       bakeStepSettings[actionName] = {
@@ -209,6 +252,11 @@ export class DeploymentSafetyEnforcer extends Construct {
       pipelineName: props.pipeline.pipelineName,
       changeCalendars: props.changeCalendars ?? {},
       bakeSteps: bakeStepSettings,
+      metricsSettings: {
+        enabled: props.metrics?.enabled !== false,
+        namespace: props.metrics?.metricNamespace,
+        dimensionsMap: props.metrics?.extraMetricDimensions,
+      },
     };
 
     new events.Rule(this, 'ScheduleEnforcer', {
