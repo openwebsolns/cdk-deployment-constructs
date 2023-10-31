@@ -91,6 +91,7 @@ const transitionDisabledByEnforcer = (reason?: string) => {
 };
 
 interface EmitMetricsArgs {
+  readonly pipelineName: string;
   readonly pipelineState: aws.CodePipeline.GetPipelineStateOutput;
   readonly requestId: string;
   readonly rejectedBakeActions: number;
@@ -98,12 +99,12 @@ interface EmitMetricsArgs {
 }
 
 const emitMetrics = async (args: EmitMetricsArgs) => {
-  const dimensions = Object.entries(args.settings.dimensionsMap ?? {})
-    .map(
-      ([name, value]) => ({
-        Name: name,
-        Value: value,
-      }));
+  const dimensions = [
+    {
+      Name: 'PipelineName',
+      Value: args.pipelineName,
+    },
+  ];
 
   const stages = (args.pipelineState.stageStates ?? []);
   const actions = stages.flatMap((stage) => stage.actionStates ?? []);
@@ -136,7 +137,7 @@ const emitMetrics = async (args: EmitMetricsArgs) => {
 
     if (earliestActionExecution && latestActionExecution) {
       metricData.push({
-        MetricName: 'Max',
+        MetricName: 'MaxActionExecutionLatency',
         Value: (latestActionExecution.getTime() - earliestActionExecution.getTime()) / 1000,
         Unit: 'Seconds',
       });
@@ -547,12 +548,10 @@ const execute = async (
     await emitMetrics({
       pipelineState,
       requestId,
+      pipelineName: settings.pipelineName,
       rejectedBakeActions: rejectBakeActions.length,
       settings: settings.metricsSettings ?? {
         namespace: 'DeploymentSafetyEnforcer',
-        dimensionsMap: {
-          PipelineName: settings.pipelineName,
-        },
       },
     });
   }
