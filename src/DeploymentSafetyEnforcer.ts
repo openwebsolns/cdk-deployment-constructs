@@ -67,14 +67,6 @@ export interface MetricsProps {
    * CloudWatch namespace to use for the metrics.
    */
   readonly metricNamespace?: string;
-
-  /**
-   * Cloudwatch dimensions to use for the metrics. Metrics are always published
-   * with no dimensions.
-   *
-   * Default: 'PipelineName' with value set to pipeline's name
-   */
-  readonly extraMetricDimensions?: Record<string, string>;
 }
 
 /**
@@ -118,12 +110,15 @@ export interface DeploymentSafetyEnforcerProps {
  * Creates a Lambda function to monitor a `CodePipeline`.
  */
 export class DeploymentSafetyEnforcer extends Construct {
+  private readonly props: DeploymentSafetyEnforcerProps;
+
   constructor(
     scope: Construct,
     id: string,
     props: DeploymentSafetyEnforcerProps,
   ) {
     super(scope, id);
+    this.props = props;
 
     const enforcerFunction = new lambdaNode.NodejsFunction(this, 'function', {
       runtime: lambda.Runtime.NODEJS_16_X,
@@ -255,7 +250,6 @@ export class DeploymentSafetyEnforcer extends Construct {
       metricsSettings: {
         enabled: props.metrics?.enabled !== false,
         namespace: props.metrics?.metricNamespace,
-        dimensionsMap: props.metrics?.extraMetricDimensions,
       },
     };
 
@@ -268,6 +262,27 @@ export class DeploymentSafetyEnforcer extends Construct {
           event: events.RuleTargetInput.fromObject(input),
         }),
       ],
+    });
+  }
+
+  public metricFailedStages(props?: cloudwatch.MetricOptions) {
+    return this.metric('FailedStages', props);
+  }
+
+  public metricMaxActionExecutionLatency(props?: cloudwatch.MetricOptions) {
+    return this.metric('MaxActionExecutionLatency', props);
+  }
+
+  public metric(metricName: string, props?: cloudwatch.MetricOptions) {
+    return new cloudwatch.Metric({
+      metricName,
+      namespace: this.props.metrics?.metricNamespace ?? 'DeploymentSafetyEnforcer',
+      period: cdk.Duration.minutes(5),
+      statistic: cloudwatch.Stats.AVERAGE,
+      dimensionsMap: {
+        PipelineName: this.props.pipeline.pipelineName,
+      },
+      ...props,
     });
   }
 

@@ -25,7 +25,13 @@ pipeline.addStage(new MockStage(stack, 'FirstStage'));
 pipeline.addStage(new MockStage(stack, 'SecondStage'));
 pipeline.buildPipeline();
 
-new DeploymentSafetyEnforcer(stack, 'Test', { pipeline: pipeline.pipeline });
+const enforcer = new DeploymentSafetyEnforcer(stack, 'Test', {
+  pipeline: pipeline.pipeline,
+  metrics: {
+    enabled: true,
+    metricNamespace: 'metricNamespace',
+  },
+});
 const template = Template.fromStack(stack);
 
 test('Lambda functions should be configured with properties and execution roles', () => {
@@ -60,4 +66,12 @@ test('Lambda Integration should be created', () => {
   template.hasResourceProperties('AWS::Lambda::Permission', {
     Principal: 'events.amazonaws.com',
   });
+});
+
+test('FailedStages metric', () => {
+  const metric = enforcer.metricFailedStages();
+  expect(metric.metricName).toEqual('FailedStages');
+  expect(metric.dimensions?.PipelineName).toBeDefined();
+  expect(metric.namespace).toEqual('metricNamespace');
+  expect(metric.statistic).toEqual('Average');
 });

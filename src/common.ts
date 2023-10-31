@@ -59,13 +59,6 @@ export interface MetricsSettings {
    * Default: 'DeploymentSafetyEnforcer'
    */
   readonly namespace?: string;
-
-  /**
-   * Cloudwatch dimensions to use for the metrics.
-   *
-   * Default: 'PipelineName'
-   */
-  readonly dimensionsMap?: Record<string, string>;
 }
 
 export interface DeploymentSafetySettings {

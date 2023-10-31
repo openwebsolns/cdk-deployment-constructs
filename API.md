@@ -279,6 +279,9 @@ new DeploymentSafetyEnforcer(scope: Construct, id: string, props: DeploymentSafe
 | **Name** | **Description** |
 | --- | --- |
 | <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcer.toString">toString</a></code> | Returns a string representation of this construct. |
+| <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcer.metric">metric</a></code> | *No description.* |
+| <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcer.metricFailedStages">metricFailedStages</a></code> | *No description.* |
+| <code><a href="#cdk-deployment-constructs.DeploymentSafetyEnforcer.metricMaxActionExecutionLatency">metricMaxActionExecutionLatency</a></code> | *No description.* |
 
 ---
 
@@ -289,6 +292,48 @@ public toString(): string
 ```
 
 Returns a string representation of this construct.
+
+##### `metric` <a name="metric" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metric"></a>
+
+```typescript
+public metric(metricName: string, props?: MetricOptions): Metric
+```
+
+###### `metricName`<sup>Required</sup> <a name="metricName" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metric.parameter.metricName"></a>
+
+- *Type:* string
+
+---
+
+###### `props`<sup>Optional</sup> <a name="props" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metric.parameter.props"></a>
+
+- *Type:* aws-cdk-lib.aws_cloudwatch.MetricOptions
+
+---
+
+##### `metricFailedStages` <a name="metricFailedStages" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metricFailedStages"></a>
+
+```typescript
+public metricFailedStages(props?: MetricOptions): Metric
+```
+
+###### `props`<sup>Optional</sup> <a name="props" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metricFailedStages.parameter.props"></a>
+
+- *Type:* aws-cdk-lib.aws_cloudwatch.MetricOptions
+
+---
+
+##### `metricMaxActionExecutionLatency` <a name="metricMaxActionExecutionLatency" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metricMaxActionExecutionLatency"></a>
+
+```typescript
+public metricMaxActionExecutionLatency(props?: MetricOptions): Metric
+```
+
+###### `props`<sup>Optional</sup> <a name="props" id="cdk-deployment-constructs.DeploymentSafetyEnforcer.metricMaxActionExecutionLatency.parameter.props"></a>
+
+- *Type:* aws-cdk-lib.aws_cloudwatch.MetricOptions
+
+---
 
 #### Static Functions <a name="Static Functions" id="Static Functions"></a>
 
@@ -603,7 +648,6 @@ const metricsProps: MetricsProps = { ... }
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
 | <code><a href="#cdk-deployment-constructs.MetricsProps.property.enabled">enabled</a></code> | <code>boolean</code> | Set to true to emit metrics on pipeline with every enforcer execution. |
-| <code><a href="#cdk-deployment-constructs.MetricsProps.property.extraMetricDimensions">extraMetricDimensions</a></code> | <code>{[ key: string ]: string}</code> | Cloudwatch dimensions to use for the metrics. Metrics are always published with no dimensions. |
 | <code><a href="#cdk-deployment-constructs.MetricsProps.property.metricNamespace">metricNamespace</a></code> | <code>string</code> | CloudWatch namespace to use for the metrics. |
 
 ---
@@ -619,20 +663,6 @@ public readonly enabled: boolean;
 Set to true to emit metrics on pipeline with every enforcer execution.
 
 Default: true
-
----
-
-##### `extraMetricDimensions`<sup>Optional</sup> <a name="extraMetricDimensions" id="cdk-deployment-constructs.MetricsProps.property.extraMetricDimensions"></a>
-
-```typescript
-public readonly extraMetricDimensions: {[ key: string ]: string};
-```
-
-- *Type:* {[ key: string ]: string}
-
-Cloudwatch dimensions to use for the metrics. Metrics are always published with no dimensions.
-
-Default: 'PipelineName' with value set to pipeline's name
 
 ---
 
