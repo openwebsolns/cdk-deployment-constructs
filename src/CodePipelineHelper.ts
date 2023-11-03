@@ -149,12 +149,13 @@ export class CodePipelineHelper extends Construct {
     if (this.built) {
       throw new Error('build() has already been called: can only call it once');
     }
-    this.doBuild();
+    const enforcer = this.doBuild();
     this.built = true;
+    return enforcer;
   }
 
   private doBuild() {
-    new DeploymentSafetyEnforcer(this, 'Enforcer', {
+    return new DeploymentSafetyEnforcer(this, 'Enforcer', {
       pipeline: this.pipeline.pipeline,
       changeCalendars: this.changeCalendarsByStageName,
       bakeSteps: this.bakeSteps,
