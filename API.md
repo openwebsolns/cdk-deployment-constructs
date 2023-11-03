@@ -145,7 +145,7 @@ set of SSM ChangeCalendar name or ARNs to block on.
 ##### `buildEnforcer` <a name="buildEnforcer" id="cdk-deployment-constructs.CodePipelineHelper.buildEnforcer"></a>
 
 ```typescript
-public buildEnforcer(): void
+public buildEnforcer(): DeploymentSafetyEnforcer
 ```
 
 Performs one-time building of resources. May not be called multiple times.
