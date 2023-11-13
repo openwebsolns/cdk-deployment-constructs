@@ -550,8 +550,9 @@ const execute = async (
       requestId,
       pipelineName: settings.pipelineName,
       rejectedBakeActions: rejectBakeActions.length,
-      settings: settings.metricsSettings ?? {
+      settings: {
         namespace: 'DeploymentSafetyEnforcer',
+        ...settings.metricsSettings,
       },
     });
   }
