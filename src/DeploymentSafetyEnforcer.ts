@@ -218,7 +218,7 @@ export class DeploymentSafetyEnforcer extends Construct {
       }
     }
 
-    if (props.metrics?.enabled) {
+    if (props.metrics?.enabled !== false) {
       enforcerFunction.addToRolePolicy(
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,

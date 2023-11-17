@@ -71,3 +71,15 @@ test('Event Bridge rule input', () => {
     ]),
   });
 });
+
+test('Enforcer role', () => {
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: 'cloudwatch:PutMetricData',
+        }),
+      ]),
+    }),
+  });
+});
